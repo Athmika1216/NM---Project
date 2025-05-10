@@ -1,0 +1,54 @@
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import Literal
+import joblib
+import os
+
+# FastAPI instance
+app = FastAPI(title="Fake News Detection API")
+
+# Input data model
+class NewsRequest(BaseModel):
+    content: str
+
+# Output data model
+class PredictionResponse(BaseModel):
+    prediction: Literal["Fake News", "Real News"]
+
+# Load or simulate model
+model_path = "fake_news_model.pkl"
+vectorizer_path = "vectorizer.pkl"
+
+if os.path.exists(model_path) and os.path.exists(vectorizer_path):
+    model = joblib.load(model_path)
+    vectorizer = joblib.load(vectorizer_path)
+else:
+    # Simulated model (replace with your trained model)
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.feature_extraction.text import TfidfVectorizer
+
+    sample_texts = [
+        "The president declared a new policy.",
+        "Aliens landed in New York!",
+        "NASA confirms water on Mars.",
+        "You won't believe what this dog did!"
+    ]
+    labels = [1, 0, 1, 0]  # 1 = Real, 0 = Fake
+
+    vectorizer = TfidfVectorizer()
+    X = vectorizer.fit_transform(sample_texts)
+    model = LogisticRegression()
+    model.fit(X, labels)
+
+    joblib.dump(model, model_path)
+    joblib.dump(vectorizer, vectorizer_path)
+
+@app.post("/predict", response_model=PredictionResponse)
+async def predict_news(news: NewsRequest):
+    try:
+        vectorized_text = vectorizer.transform([news.content])
+        prediction = model.predict(vectorized_text)[0]
+        label = "Real News" if prediction == 1 else "Fake News"
+        return PredictionResponse(prediction=label)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
