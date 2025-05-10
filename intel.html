@@ -36,3 +36,122 @@ def prepare_dataset(path='fake_or_real_news.csv'):
 if _name_ == "_main_":
     X_train, X_test, y_train, y_test = prepare_dataset()
     print("Dataset loaded and processed. Ready for training.")
+
+
+
+
+
+    from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import Literal
+import joblib
+import os
+
+# FastAPI instance
+app = FastAPI(title="Fake News Detection API")
+
+# Input data model
+class NewsRequest(BaseModel):
+    content: str
+
+# Output data model
+class PredictionResponse(BaseModel):
+    prediction: Literal["Fake News", "Real News"]
+
+# Load or simulate model
+model_path = "fake_news_model.pkl"
+vectorizer_path = "vectorizer.pkl"
+
+if os.path.exists(model_path) and os.path.exists(vectorizer_path):
+    model = joblib.load(model_path)
+    vectorizer = joblib.load(vectorizer_path)
+else:
+    # Simulated model (replace with your trained model)
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.feature_extraction.text import TfidfVectorizer
+
+    sample_texts = [
+        "The president declared a new policy.",
+        "Aliens landed in New York!",
+        "NASA confirms water on Mars.",
+        "You won't believe what this dog did!"
+    ]
+    labels = [1, 0, 1, 0]  # 1 = Real, 0 = Fake
+
+    vectorizer = TfidfVectorizer()
+    X = vectorizer.fit_transform(sample_texts)
+    model = LogisticRegression()
+    model.fit(X, labels)
+
+    joblib.dump(model, model_path)
+    joblib.dump(vectorizer, vectorizer_path)
+
+@app.post("/predict", response_model=PredictionResponse)
+async def predict_news(news: NewsRequest):
+    try:
+        vectorized_text = vectorizer.transform([news.content])
+        prediction = model.predict(vectorized_text)[0]
+        label = "Real News" if prediction == 1 else "Fake News"
+        return PredictionResponse(prediction=label)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+
+        // File: App.jsx
+import React, { useState } from "react";
+
+export default function App() {
+  const [inputText, setInputText] = useState("");
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleAnalyze = async () => {
+    setLoading(true);
+    // Simulated API call
+    setTimeout(() => {
+      setResult(Math.random() > 0.5 ? "Fake News" : "Real News");
+      setLoading(false);
+    }, 1000);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100 p-6">
+      <header className="text-center mb-10">
+        <h1 className="text-4xl font-bold text-gray-800">
+          Exposing the Truth
+        </h1>
+        <p className="text-lg text-gray-600">
+          Advanced Fake News Detection Powered by NLP
+        </p>
+      </header>
+
+      <main className="max-w-2xl mx-auto bg-white p-6 rounded-2xl shadow-md">
+        <textarea
+          className="w-full p-4 border border-gray-300 rounded-lg mb-4"
+          rows="6"
+          placeholder="Paste news content here..."
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+        />
+
+        <button
+          onClick={handleAnalyze}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-xl"
+          disabled={loading}
+        >
+          {loading ? "Analyzing..." : "Detect Fake News"}
+        </button>
+
+        {result && (
+          <div className={`mt-6 text-center text-xl font-bold ${
+            result === "Fake News" ? "text-red-600" : "text-green-600"
+          }`}>
+            Result: {result}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
